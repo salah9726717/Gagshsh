@@ -4,6 +4,8 @@ const pages = ["home", "tasks", "invite", "withdrawals"];
 // Reward credited to the balance for every claimed Telegram task (change as needed).
 const TASK_REWARD = 1.5;
 const DAILY_REWARD = 1;
+// Reward credited to the balance when the user shares the invite link (once per day).
+const SHARE_REWARD = 1;
 // Withdraw rules
 const MIN_WITHDRAW = 200;
 const REQUIRED_REFERRALS = 10;
@@ -58,6 +60,7 @@ const TASK_STORAGE_KEY = "sophia_tasks_state";
 const BALANCE_STORAGE_KEY = "sophia_balance";
 const DAILY_STORAGE_KEY = "sophia_daily";
 const WITHDRAW_STORAGE_KEY = "sophia_withdrawals";
+const SHARE_STORAGE_KEY = "sophia_share_last";
 function loadLocalWithdrawals() {
   const list = readStore(WITHDRAW_STORAGE_KEY, []);
   return Array.isArray(list) ? list : [];
@@ -220,6 +223,20 @@ function getInviteLink() {
   return `${INVITE_BASE_LINK}=${encodeURIComponent(userId)}`;
 }
 
+// Credit SHARE_REWARD to the balance when the invite link is shared (max once per day).
+function rewardForShare() {
+  const d = new Date();
+  const today = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+  if (readStore(SHARE_STORAGE_KEY, "") === today) {
+    showInviteToast("Daily share reward already collected");
+    return;
+  }
+  writeStore(SHARE_STORAGE_KEY, today);
+  addToBalance(SHARE_REWARD);
+  updateSummary();
+  showInviteToast(`${formatMoney(SHARE_REWARD)} added to your balance`);
+}
+
 function renderInvitePage() {
   const pageArea = document.querySelector(".page-area");
   const inviteLink = getInviteLink();
@@ -278,7 +295,6 @@ function renderInvitePage() {
           <span class="how-number">03</span>
           <div class="how-copy"><strong>You earn $2</strong><p>Receive $2 for each successful referral after all their tasks are verified as completed.</p></div>
         </div>
-        <div class="invite-reward-note">Only genuine app starts and verified completed tasks count. Referral totals and earned rewards will appear here when connected to the live backend.</div>
       </section>
     </div>`;
 
@@ -302,6 +318,7 @@ function renderInvitePage() {
       } else {
         window.open(shareUrl, "_blank", "noopener");
       }
+      rewardForShare();
     });
   }
 }
